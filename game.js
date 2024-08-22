@@ -8,12 +8,13 @@ class Player {
     this._att = 25; // 공격력
     this._crt = 30; //크리확률
     this._crtdmg = 1.5; // 크리대미지 배율
-    this._escape = 20; // 도망확률 20퍼 시작.
+    this._escape = 100; // 도망확률 20퍼 시작.
 
     this._damagerate = 1.0; //받는 피해 배율
     this._doubleAttackRate = 50; // 더블어택 성공확률
     this._dodge = 60; // 회피율
     this._dodgeAttack = 50; // 회피 반격 확률  반드시 치명타.
+    this._stageLevel = 0;
 
     this._state = "";
   }
@@ -59,6 +60,10 @@ class Player {
     return this._dodgeAttack;
   }
 
+  get stageLevel() {
+    return this._stageLevel;
+  }
+
   // setter
   set hp(n) {
     this._hp = n;
@@ -100,6 +105,10 @@ class Player {
     this._dodgeAttack = n;
   }
 
+  set stageLevel(n) {
+    this._stageLevel = n;
+  }
+
   // act
   resetState() {
     this._state = "";
@@ -111,17 +120,27 @@ class Player {
     const randomInt = Math.floor(Math.random() * 100) + 1;
     let damage = 0;
 
-    if (randomInt <= this.crt) {
-      this.state = "Critical Hit";
-      damage = parseInt(this.att * this.crtdmg);
-      monster.hp -= damage;
+    if (monster.dodgeCheck()) {
+      // 회피성공하면 몬스터 피해 X
+      logs.push(chalk.red(`앗..! 몬스터가 공격을 회피했다!!\n`));
+      logs.push(
+        chalk.red(`Boss : 날 이때까지의 애송이들과 같다고 생각하지 마라...\n`)
+      );
     } else {
-      monster.setterhp;
-      damage = this.att;
-      monster.hp -= damage;
+      // 몬스터 회피 실패
+      if (randomInt <= this.crt) {
+        this.state = "Critical Hit";
+        damage = parseInt(this.att * this.crtdmg);
+        monster.hp -= damage;
+      } else {
+        monster.setterhp;
+        damage = this.att;
+        monster.hp -= damage;
+      }
+
+      logs.push(chalk.red(`몬스터에게 ${damage}만큼의 피해를 주었습니다.\n`));
     }
 
-    logs.push(chalk.red(`몬스터에게 ${damage}만큼의 피해를 주었습니다.\n`));
     if (monster.hp > 0) {
       monster.attack(this, logs);
     }
@@ -149,20 +168,29 @@ class Player {
     let damage = 0;
     this.state = "Double Attack!!";
 
-    for (let i = 0; i < 2; i++) {
-      randomInt = Math.floor(Math.random() * 100) + 1;
+    if (monster.dodgeCheck()) {
+      // 회피성공하면 몬스터 피해 X
+      logs.push(chalk.red(`앗..! 몬스터가 공격을 회피했다!!\n`));
+      logs.push(
+        chalk.red(`Boss : 날 이때까지의 애송이들과 같다고 생각하지 마라...\n`)
+      );
+    } else {
+      // 몬스터 회피 실패
+      for (let i = 0; i < 2; i++) {
+        randomInt = Math.floor(Math.random() * 100) + 1;
 
-      if (randomInt <= this.crt) {
-        this.state = "Critical Hit";
-        damage = parseInt(this.att * this.crtdmg);
-        monster.hp -= damage;
-      } else {
-        monster.setterhp;
-        damage = this.att;
-        monster.hp -= damage;
+        if (randomInt <= this.crt) {
+          this.state = "Critical Hit";
+          damage = parseInt(this.att * this.crtdmg);
+          monster.hp -= damage;
+        } else {
+          monster.setterhp;
+          damage = this.att;
+          monster.hp -= damage;
+        }
+
+        logs.push(chalk.red(`몬스터에게 ${damage}만큼의 피해를 주었습니다.\n`));
       }
-
-      logs.push(chalk.red(`몬스터에게 ${damage}만큼의 피해를 주었습니다.\n`));
     }
 
     if (monster.hp > 0) {
@@ -213,7 +241,7 @@ class Player {
 
     if (randomInt <= this.escape) {
       this.state = "Escape Success";
-      this.escape = 20; // 도주 성공하면 초기화;
+      this.escape = 100; // 도주 성공하면 초기화;
       logs.push(chalk.green(`플레이어가 도주에 성공했습니다.\n`));
     } else {
       this.state = "Escape Fail";
@@ -342,6 +370,28 @@ class Monster {
 
     return damage;
   }
+
+  dodgeCheck() {
+    return false;
+  }
+}
+
+// 보스 몬스터
+class BossMonster extends Monster {
+  constructor(stage) {
+    super(stage);
+  }
+
+  dodgeCheck() {
+    const randomInt = Math.floor(Math.random() * 100) + 1;
+
+    // 회피확률 20퍼
+    if (randomInt <= 20) {
+      return true;
+    }
+
+    return false;
+  }
 }
 
 function redFigletLog(str) {
@@ -397,8 +447,15 @@ function playerStateLog(player) {
     case "You Die":
       redFigletLog(player.state);
       break;
+    case "Boss Monster":
+      redFigletLog(player.state);
+      break;
     default:
-      redFigletLog("Monster");
+      if (player.stageLevel === 10) {
+        redFigletLog("Boss Monster");
+      } else {
+        redFigletLog("Monster");
+      }
       break;
   }
 }
@@ -425,7 +482,6 @@ function displayStatus(stage, player, monster) {
 
 const battle = async (stage, player, monster) => {
   let logs = [];
-
   while (true) {
     console.clear();
     displayStatus(stage, player, monster);
@@ -445,6 +501,16 @@ const battle = async (stage, player, monster) => {
 
     // 몬스터 사망, 도망 성공 == 스테이지 클리어
     if (player.state === "Escape Success" || monster.hp <= 0) {
+      if (stage.level === 10) {
+        console.log(chalk.redBright(`Boss : 크으으아아악!!!\n`));
+        console.log(chalk.redBright(`Boss : 크윽.. 내가.. 내가..!! 지다..니...\n`));
+        await waitInput();
+        console.log(chalk.greenBright(`보스를 쓰러트렸다!!\n`));
+        console.log(chalk.greenBright(`스테이지 클리어!`));
+        await waitInput();
+        return;
+      }
+
       // await으로 입력받을때까지 기다리기
       console.log(chalk.green(`스테이지 클리어!`));
       // 상태 리셋
@@ -508,7 +574,14 @@ export async function startGame() {
   let stage = { level: 1, over: false };
 
   while (stage.level <= 10) {
-    const monster = new Monster(stage);
+    let monster = "";
+    player.stageLevel = stage.level;
+
+    if (stage.level === 10) {
+      monster = new BossMonster(stage);
+    } else {
+      monster = new Monster(stage);
+    }
     await battle(stage, player, monster);
 
     if (stage.over === true || player.hp <= 0) {
@@ -520,7 +593,4 @@ export async function startGame() {
   }
 
   greenFigletLog("Game Clear");
-
-
-
 }
