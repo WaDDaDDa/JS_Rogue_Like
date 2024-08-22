@@ -8,7 +8,7 @@ class Player {
     this._att = 25; // 공격력
     this._crt = 30; //크리확률
     this._crtdmg = 1.5; // 크리대미지 배율
-    this._escape = 100; // 도망확률 20퍼 시작.
+    this._escape = 20; // 도망확률 20퍼 시작.
 
     this._damagerate = 1.0; //받는 피해 배율
     this._doubleAttackRate = 50; // 더블어택 성공확률
@@ -241,7 +241,7 @@ class Player {
 
     if (randomInt <= this.escape) {
       this.state = "Escape Success";
-      this.escape = 100; // 도주 성공하면 초기화;
+      this.escape = 20; // 도주 성공하면 초기화;
       logs.push(chalk.green(`플레이어가 도주에 성공했습니다.\n`));
     } else {
       this.state = "Escape Fail";
